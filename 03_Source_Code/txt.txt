@@ -1,0 +1,34 @@
+
+import streamlit as st
+
+# Настройки страницы
+st.set_page_config(
+    page_title="SRDS",
+    page_icon="📋",
+    layout="wide"
+)
+
+# Заголовок
+st.title("Smart Rocket Data Sheet")
+st.subheader("Система управления документацией")
+
+st.info("Добро пожаловать в SRDS!")
+
+st.write("Версия системы: 0.1")
+
+st.divider()
+
+# Создание новой записи
+st.header("Создание новой записи")
+
+rocket_name = st.text_input("Название записи")
+owner_name = st.text_input("Имя владельца")
+
+# Проверка заполнения
+if st.button("Создать запись"):
+    if rocket_name and owner_name:
+        st.success("Данные приняты!")
+        st.write("Название:", rocket_name)
+        st.write("Владелец:", owner_name)
+    else:
+        st.warning("Заполни оба поля")

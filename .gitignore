@@ -1,0 +1,10 @@
+.env
+**/.env
+*.db
+*.sqlite
+*.sqlite3
+SRDS_BACKUP/
+__pycache__/
+.venv/
+03_Source_Code/app_backup*
+03_Source_Code/app_error*
