@@ -1,4 +1,5 @@
-import os
+import os 
+import uuid
 import sqlite3
 import shutil
 from io import BytesIO
@@ -7,6 +8,7 @@ from pathlib import Path
 import requests
 import streamlit as st
 from dotenv import load_dotenv
+from supabase import create_client
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -20,7 +22,10 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 DB_PATH = BASE_DIR / "04_Database" / "srds.db"
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("CHAT_ID", "").strip()
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "").strip()
 
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def init_db():
     """Create the table and safely add newer fields without deleting records."""
@@ -359,6 +364,7 @@ st.set_page_config(
     layout="centered",
 )
 
+
 st.title("Smart Rocket Data Sheet")
 st.subheader("Система регистрации участников турнира")
 st.caption("Registration form")
@@ -383,52 +389,65 @@ with st.form("registration_form", clear_on_submit=True):
 
     submitted = st.form_submit_button("Отправить регистрацию", type="primary")
 
+
 if submitted:
     if participant.strip() and rocket_name.strip() and owner_name.strip():
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute(
-                """
-                INSERT INTO registrations
-                (participant, project, team, email, rocket_name, owner_name,
-                 address, city, state, zip_code)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    participant.strip(), rocket_name.strip(), team.strip(),
-                    email.strip(), rocket_name.strip(), owner_name.strip(),
-                    address.strip(), city.strip(), state.strip(),
-                    zip_code.strip(),
-                ),
-            )
-            record_id = conn.execute(
-                "SELECT last_insert_rowid()"
-            ).fetchone()[0]
-            record = conn.execute(
-                """
-                SELECT id, participant, project, team, email, created_at,
-                       rocket_name, owner_name, address, city, state, zip_code
-                FROM registrations WHERE id = ?
-                """,
-                (record_id,),
-            ).fetchone()
+        try:
+            registration_id = str(uuid.uuid4())
 
-        pdf_buffer = create_pdf(record)
-        sent, message = send_pdf_to_telegram(record_id, participant.strip(), pdf_buffer)
+            response = supabase.table("registrations").insert({
+                "participant": participant.strip(),
+                "participant_name": participant.strip(),
+                "registration_id": registration_id,
+                "project": rocket_name.strip(),
+                "team": team.strip(),
+                "email": email.strip(),
+                "rocket_name": rocket_name.strip(),
+                "owner_name": owner_name.strip(),
+                "address": address.strip(),
+                "city": city.strip(),
+                "state": state.strip(),
+                "zip_code": zip_code.strip(),
+            }).select("*").execute()
 
-        if sent:
-            st.success(
-                "Регистрация успешно отправлена! Подтверждение получено."
+            row = response.data[0]
+            record_id = int(row["id"])
+
+            record = (
+                record_id,
+                row["participant"],
+                row["project"],
+                row.get("team"),
+                row.get("email"),
+                row.get("created_at"),
+                row.get("rocket_name"),
+                row.get("owner_name"),
+                row.get("address"),
+                row.get("city"),
+                row.get("state"),
+                row.get("zip_code"),
             )
-        else:
-            st.warning(
-                "Заявка сохранена, но отправить PDF в Telegram не удалось. "
-                "Пожалуйста, попробуйте позже или свяжитесь с организатором."
+
+            pdf_buffer = create_pdf(record)
+            sent, message = send_pdf_to_telegram(
+                record_id, participant.strip(), pdf_buffer
             )
-            # Do not expose technical details or secrets to public visitors.
-            print(f"SRDS Telegram delivery error for record {record_id}: {message}")
+
+            if sent:
+                st.success("Регистрация успешно отправлена!")
+            else:
+                st.warning(f"Регистрация сохранена, но Telegram: {message}")
+
+        except Exception as e:
+            st.error(f"Ошибка сохранения регистрации: {e}")
+
+
+       
     else:
         st.warning(
             "Заполните обязательные поля: участник, название ракеты и владелец."
         )
 
 st.caption("После отправки заявки вы увидите подтверждение. PDF направляется организаторам.")
+
+
