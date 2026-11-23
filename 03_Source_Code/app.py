@@ -361,6 +361,17 @@ st.set_page_config(
     layout="centered",
 )
 
+st.markdown(
+    """
+    <style>
+    header [data-testid="stToolbar"] {
+        visibility: hidden;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 init_db()
 
 if st.session_state.get("registration_success", False):
