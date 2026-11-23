@@ -355,14 +355,29 @@ def send_pdf_to_telegram(record_id, participant, pdf_buffer):
     except requests.RequestException:
         return False, "Could not connect to Telegram. The registration is still saved."
 
-
-init_db()
-
 st.set_page_config(
     page_title="Smart Rocket Data Sheet",
     page_icon="📋",
     layout="centered",
 )
+
+init_db()
+
+if st.session_state.get("registration_success", False):
+    st.markdown(
+        """
+        <div style="text-align:center; padding:100px 10px;">
+            <div style="font-size:90px; color:#28a745;">✓</div>
+            <h1 style="color:#28a745;">
+                Регистрация успешно отправлена!
+            </h1>
+            <p>Спасибо за участие в Rocketry Challenge</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.stop()
+
 
 
 st.title("Smart Rocket Data Sheet")
@@ -429,25 +444,23 @@ if submitted:
             )
 
             pdf_buffer = create_pdf(record)
+
             sent, message = send_pdf_to_telegram(
                 record_id, participant.strip(), pdf_buffer
             )
 
             if sent:
-                st.success("Регистрация успешно отправлена!")
+                st.session_state["registration_success"] = True
+                st.rerun()
             else:
                 st.warning(f"Регистрация сохранена, но Telegram: {message}")
 
         except Exception as e:
             st.error(f"Ошибка сохранения регистрации: {e}")
 
-
-       
     else:
         st.warning(
             "Заполните обязательные поля: участник, название ракеты и владелец."
         )
 
 st.caption("После отправки заявки вы увидите подтверждение. PDF направляется организаторам.")
-
-
